@@ -14,7 +14,9 @@
 | M4 除权因子 | 运行除权因子并复核证据 | `POST /api/m4`；`/work/4` | `app/modules/m4_factors/rules.py` | `tests/test_m4.py` |
 | M5 持仓重算 | 运行持仓重算并复核证据 | `POST /api/m5`；`/work/5` | `app/modules/m5_holdings/rules.py` | `tests/test_m5.py` |
 | M6 现金对账 | 运行现金对账并复核证据 | `POST /api/m6`；`/work/6` | `app/modules/m6_cash/rules.py` | `tests/test_m6.py` |
-| M7 修订回放 | 运行修订回放并复核证据 | `POST /api/m7`；`/work/7` | `app/modules/m7_revisions/rules.py` | `tests/test_m7.py` |
+| M7 修订回放 | 运行修订回放并复核证据 | `POST /api/m7`；`/work/7` | `app/modules/m7_revisions/rules.py` | `tests/test_m7.py`、`tests/test_revision.py` |
+
+调用链：`POST /api/derive`（`app/derivation.py`）按 `base` 关联原批次，M1/M2 只处理修订文件，进入 M3 前与已复核批次合并（`_merge`）：`current_actions` 供 M4/M7 取因子，`actions` 保留登记时版本供 M3/M5/M6。派生批次存于 `runs` 表（`parent`、`derivation_key`、`progress`、`status`），断点续跑用 `checkpoints` 表按阶段落盘。页面 `/work/<n>?run_id=` 可展示原批次、派生批次及部分完成批次。
 
 ## 陷阱登记
 
@@ -28,6 +30,12 @@
 | TRAP-14 | 行动定义冲突 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m2_mapping/rules.py` | `tests/test_m2.py::test_conflicting_action_removed` |
 | TRAP-24 | 现金尾差 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m5_holdings/rules.py` | `tests/test_m5.py::test_largest_remainder_conservation` |
 | TRAP-25 | 行动版本选择 | 静默覆盖或误计 | 显式裁决并保留证据 | `app/modules/m2_mapping/rules.py` | `tests/test_m2.py::test_latest_action_chosen` |
+| TRAP-31 | 修订改写复核数 | 重算覆盖历史复核数 | 派生新批次，原批次凭据只读保留 | `app/derivation.py` | `tests/test_revision.py::test_derivation_links_base_and_base_stays_reviewed` |
+| TRAP-32 | 修订后因子与权益口径 | 全部冻结或全部重算 | 因子用当前版本，权益与现金用登记版本 | `app/derivation.py` | `tests/test_revision.py::test_factor_uses_new_version_entitlement_keeps_registered_version` |
+| TRAP-33 | 修订中断续跑 | 整批重放或整批作废 | 按已确认阶段续跑，原批次继续展示 | `app/derivation.py` | `tests/test_revision.py::test_interrupted_derivation_resumes_and_original_stays_visible` |
+| TRAP-34 | 同一修订重复提交 | 重复派生或覆盖复核 | 复用原派生批次 | `app/store.py::save_derived` | `tests/test_revision.py::test_same_revision_resubmission_reuses_derived_result` |
+| TRAP-35 | 行动晚到低版本 | 当前版本回退 | 记录晚到记录，当前版本只增不减 | `app/derivation.py` | `tests/test_revision.py::test_late_lower_version_never_rolls_back_current` |
+| TRAP-36 | 同版本不同定义 | 静默覆盖已复核定义 | 隔离修订行，保留已复核定义 | `app/derivation.py` | `tests/test_revision.py::test_same_version_different_definition_is_isolated` |
 
 ## 对账规则
 

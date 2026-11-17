@@ -1,5 +1,7 @@
 from app.domain import entitlement,allocate_cents
 from app.numeric import fmt
+from decimal import Decimal
+
 def apply(ctx):
     groups={};rows=[]
     for item in ctx['eligible']:groups.setdefault((item['action']['canonical'],item['action']['ex_date']),[]).append(item)
@@ -9,5 +11,12 @@ def apply(ctx):
             p,a=item['position'],item['action'];e=calculations[p['record']]
             rows.append({'持仓记录':p['record'],'证券':p['canonical'],'快照日':p['event_date'],'除权日':a['ex_date'],'原股份':p['shares'],'新股份':str(e['new_shares']),'零碎股':str(e['fraction']),'分红_CNY':fmt(cash[p['record']],'0.01'),'认配支付_CNY':fmt(e['subscription'],'0.01'),'行动版本':a['version'],'行号':p['行号']})
     ctx['holdings']=rows
-    return {'rows':rows,'metrics':[['重算持仓',len(rows),'条'],['零碎股记录',sum(r['零碎股']!='0' for r in rows),'条'],['现金分红',str(sum((__import__('decimal').Decimal(r['分红_CNY']) for r in rows),__import__('decimal').Decimal(0))),'CNY']]}
-
+    derivation=ctx.get('derivation') or {}
+    result={'rows':rows,'metrics':[['重算持仓',len(rows),'条'],['零碎股记录',sum(r['零碎股']!='0' for r in rows),'条'],['现金分红',str(sum((Decimal(r['分红_CNY']) for r in rows),Decimal(0))),'CNY']]}
+    if derivation:
+        result['linked']={'base_run_id':derivation.get('base_run_id'),
+                          'base_revision':derivation.get('base_revision'),
+                          'base_decision':derivation.get('base_decision'),
+                          'entitlement_source':'登记时版本',
+                          'original_holdings':(derivation.get('original') or {}).get('holdings')}
+    return result

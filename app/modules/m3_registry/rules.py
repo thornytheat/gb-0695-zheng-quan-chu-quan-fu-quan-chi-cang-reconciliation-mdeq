@@ -15,4 +15,13 @@ def apply(ctx):
         if (p['record'],p['event_date']) not in selected:
             rows.append({'持仓记录':p['record'],'证券':p['canonical'],'资格':'无登记权益','股份':p['shares'],'行动':''})
     ctx['eligible']=eligible
-    return {'rows':rows,'metrics':[['有权益',len(eligible),'条'],['无权益',sum(r['资格']=='无登记权益' for r in rows),'条'],['登记日',' / '.join(sorted({a['record_date'] for a in ctx['actions']})),'']]}
+    derivation=ctx.get('derivation') or {}
+    result={'rows':rows,'metrics':[['有权益',len(eligible),'条'],['无权益',sum(r['资格']=='无登记权益' for r in rows),'条'],['登记日',' / '.join(sorted({a['record_date'] for a in ctx['actions']})),'']]}
+    if derivation:
+        result['linked']={'base_run_id':derivation.get('base_run_id'),
+                          'base_revision':derivation.get('base_revision'),
+                          'base_decision':derivation.get('base_decision'),
+                          'entitlement_source':'登记时版本',
+                          'registered_versions':derivation.get('registered_versions',{}),
+                          'current_versions':derivation.get('current_versions',{})}
+    return result

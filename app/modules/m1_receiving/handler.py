@@ -1,9 +1,5 @@
-from flask import Blueprint, request, jsonify
-from app.pipeline import calculate
-from app.numeric import serial
+from flask import Blueprint, jsonify
+from app.api import stage
 bp=Blueprint('m1',__name__)
 @bp.route('/api/m1', methods=['GET','POST'])
-def module_1():
-    payload=request.get_json(silent=True) or {}
-    result=calculate(payload.get('csv'), stop=1)
-    return jsonify(serial(result['stages']['1']))
+def module_1(): return jsonify(stage(1))
